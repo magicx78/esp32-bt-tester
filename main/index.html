@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP32 BT-Tester</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#1a1d24; --line:#2a2f3a; --fg:#e6e8ee; --muted:#8b93a3;
+    --audio:#1e5f3a; --audiobd:#36c377; --classic:#1d3a5f; --classicbd:#4a9eff;
+    --ble:#23262e; --blefg:#6b7280; --btn:#2a2f3a; --btnfg:#e6e8ee; --accent:#4a9eff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--fg);padding:16px}
+  h1{font-size:18px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{background:var(--btn);color:var(--btnfg);border:1px solid var(--line);border-radius:8px;
+         padding:9px 14px;font-size:14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#06121f;font-weight:600}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  input[type=number]{width:70px;background:#0e1016;color:var(--fg);border:1px solid var(--line);
+         border-radius:8px;padding:8px;font-size:14px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--muted);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
+  td{padding:8px;border-bottom:1px solid var(--line)}
+  tr.dev{cursor:pointer}
+  tr.audio   td{background:var(--audio)}
+  tr.audio   td:first-child{border-left:3px solid var(--audiobd)}
+  tr.classic td{background:var(--classic)}
+  tr.classic td:first-child{border-left:3px solid var(--classicbd)}
+  tr.ble     td{background:var(--ble);color:var(--blefg)}
+  tr.ble     td:first-child{border-left:3px solid transparent}
+  tr.sel td{outline:2px solid var(--accent);outline-offset:-2px}
+  .tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line)}
+  .muted{color:var(--muted)}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .legend{font-size:11px;color:var(--muted);margin-top:10px;display:flex;gap:16px;flex-wrap:wrap}
+  .sw{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:middle}
+  #status{font-size:13px}
+  .warn{font-size:11px;color:#c9923a;margin-top:12px}
+</style>
+</head>
+<body>
+  <h1>ESP32 Bluetooth-Tester</h1>
+  <div class="sub">Scannen · Verbinden · Piepton — nur für eigene / autorisierte Geräte</div>
+
+  <div class="card">
+    <div class="row">
+      <button id="scanBtn" class="primary" onclick="doScan()">Scan starten</button>
+      <span id="scanInfo" class="muted"></span>
+    </div>
+    <table>
+      <thead><tr><th>Name</th><th>Adresse</th><th>Typ</th><th>RSSI</th></tr></thead>
+      <tbody id="devs"><tr><td colspan="4" class="muted">Noch kein Scan.</td></tr></tbody>
+    </table>
+    <div class="legend">
+      <span><span class="sw" style="background:#1e5f3a;border:1px solid #36c377"></span>Audio – verbindbar/beep-bar</span>
+      <span><span class="sw" style="background:#1d3a5f;border:1px solid #4a9eff"></span>Classic – verbindbar</span>
+      <span><span class="sw" style="background:#23262e"></span>BLE – nur Info</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="status"><span class="dot" style="background:#6b7280"></span>Status wird geladen …</div>
+    <div class="row" style="margin-top:12px">
+      <button id="connBtn" onclick="doConnect()" disabled>Verbinden</button>
+      <button id="discBtn" onclick="doDisconnect()" disabled>Trennen</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <span>Piepton (1&nbsp;kHz):</span>
+      <input type="number" id="dur" value="5" min="1" max="60"> <span class="muted">Sek.</span>
+      <button id="beepBtn" class="primary" onclick="doBeep()" disabled>Piepton senden</button>
+    </div>
+    <div class="warn">Hinweis: Der Piepton funktioniert nur bei verbindbaren Audio-Geräten (A2DP-Lautsprecher/-Kopfhörer). BLE-Geräte können keinen Ton empfangen.</div>
+  </div>
+
+<script>
+let selected = null;         // {addr, type, connectable}
+let devPollTimer = null;
+
+async function post(url){ try{ await fetch(url,{method:'POST'}); }catch(e){} }
+async function getJSON(url){ try{ const r=await fetch(url); return await r.json(); }catch(e){ return null; } }
+
+function doScan(){
+  post('/api/scan');
+  document.getElementById('scanInfo').textContent = 'Scan läuft …';
+  let n = 0;
+  clearInterval(devPollTimer);
+  devPollTimer = setInterval(async ()=>{ await loadDevices(); if(++n>12){clearInterval(devPollTimer);} }, 1500);
+  loadDevices();
+}
+
+function rowClass(d){
+  if(d.type==='ble') return 'ble';
+  return (d.connectable && d.audio) ? 'audio' : 'classic';
+}
+
+async function loadDevices(){
+  const data = await getJSON('/api/devices');
+  if(!data) return;
+  document.getElementById('scanInfo').textContent =
+     data.scanning ? 'Scan läuft …' : (data.devices.length+' Gerät(e) gefunden');
+  const tb = document.getElementById('devs');
+  if(!data.devices.length){ tb.innerHTML='<tr><td colspan="4" class="muted">Keine Geräte.</td></tr>'; return; }
+  tb.innerHTML='';
+  data.devices.sort((a,b)=> (b.connectable-a.connectable) || (b.rssi-a.rssi));
+  for(const d of data.devices){
+    const tr=document.createElement('tr');
+    tr.className='dev '+rowClass(d)+(selected && selected.addr===d.addr?' sel':'');
+    const typ = d.type==='ble' ? 'BLE' : (d.audio?'Classic · Audio':'Classic');
+    tr.innerHTML = `<td>${esc(d.name)}</td><td><code>${d.addr}</code></td>`+
+                   `<td><span class="tag">${typ}</span></td><td>${d.rssi} dBm</td>`;
+    tr.onclick = ()=>{ selected = d; renderSel(); loadStatus(); };
+    tb.appendChild(tr);
+  }
+}
+
+function esc(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function renderSel(){
+  document.querySelectorAll('tr.dev').forEach(tr=>tr.classList.remove('sel'));
+  if(selected){
+    document.querySelectorAll('tr.dev').forEach(tr=>{
+      if(tr.querySelector('code') && tr.querySelector('code').textContent===selected.addr) tr.classList.add('sel');
+    });
+  }
+}
+
+function doConnect(){ if(selected) post('/api/connect?addr='+selected.addr); }
+function doDisconnect(){ post('/api/disconnect'); }
+function doBeep(){
+  if(!selected) return;
+  const dur = Math.max(1, Math.min(60, parseInt(document.getElementById('dur').value)||5));
+  post('/api/beep?addr='+selected.addr+'&dur='+dur);
+}
+
+async function loadStatus(){
+  const s = await getJSON('/api/status');
+  if(!s) return;
+  const map = {idle:['#6b7280','Bereit'],connecting:['#c9923a','Verbinde …'],
+               connected:['#36c377','Verbunden'+(s.peer?' mit '+s.peer:'')],
+               disconnecting:['#c9923a','Trenne …']};
+  const [col,txt] = map[s.state]||['#6b7280','–'];
+  const extra = s.streaming ? '  ·  🔊 Ton läuft' : '';
+  document.getElementById('status').innerHTML =
+     `<span class="dot" style="background:${col}"></span>${txt}${extra}`;
+
+  const canUse = selected && selected.connectable;
+  const connected = s.state==='connected';
+  document.getElementById('connBtn').disabled = !canUse;
+  document.getElementById('beepBtn').disabled = !canUse;
+  document.getElementById('discBtn').disabled = !connected;
+  document.getElementById('scanBtn').disabled = s.scanning || connected || s.state==='connecting';
+}
+
+setInterval(loadStatus, 2000);
+setInterval(()=>{ if(!document.hidden) loadDevices(); }, 4000);
+loadStatus();
+</script>
+</body>
+</html>

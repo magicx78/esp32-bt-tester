@@ -1,0 +1,16 @@
+# ESP-IDF Build-Ausgabe
+/build/
+
+# Lokale Konfiguration (wird aus sdkconfig.defaults erzeugt)
+/sdkconfig
+/sdkconfig.old
+
+# Temporäre Helfer / Logs
+_*.py
+_*.log
+*.log
+
+# Editor/OS
+.vscode/
+.DS_Store
+Thumbs.db
