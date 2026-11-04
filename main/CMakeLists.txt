@@ -5,6 +5,7 @@ idf_component_register(
         "a2dp_src.c"
         "tone_gen.c"
         "web_server.c"
+        "ble_gattc.c"
     INCLUDE_DIRS "."
     EMBED_FILES "index.html"
     REQUIRES

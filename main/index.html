@@ -8,31 +8,30 @@
   :root{
     --bg:#0f1115; --card:#1a1d24; --line:#2a2f3a; --fg:#e6e8ee; --muted:#8b93a3;
     --audio:#1e5f3a; --audiobd:#36c377; --classic:#1d3a5f; --classicbd:#4a9eff;
-    --ble:#23262e; --blefg:#6b7280; --btn:#2a2f3a; --btnfg:#e6e8ee; --accent:#4a9eff;
+    --ble:#23262e; --blefg:#9aa3b2; --blebd:#7a5cff; --btn:#2a2f3a; --btnfg:#e6e8ee;
+    --accent:#4a9eff; --warn:#c9923a; --danger:#b4544e;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--fg);padding:16px}
   h1{font-size:18px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 10px}
   .sub{color:var(--muted);font-size:12px;margin-bottom:16px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  button{background:var(--btn);color:var(--btnfg);border:1px solid var(--line);border-radius:8px;
-         padding:9px 14px;font-size:14px;cursor:pointer}
+  button{background:var(--btn);color:var(--btnfg);border:1px solid var(--line);border-radius:8px;padding:9px 14px;font-size:14px;cursor:pointer}
   button:hover{border-color:var(--accent)}
   button.primary{background:var(--accent);border-color:var(--accent);color:#06121f;font-weight:600}
   button:disabled{opacity:.45;cursor:not-allowed}
-  input[type=number]{width:70px;background:#0e1016;color:var(--fg);border:1px solid var(--line);
-         border-radius:8px;padding:8px;font-size:14px}
+  button.sm{padding:5px 10px;font-size:12px}
+  input[type=number],input[type=text]{background:#0e1016;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px}
+  input[type=number]{width:70px}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th{text-align:left;color:var(--muted);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
   td{padding:8px;border-bottom:1px solid var(--line)}
   tr.dev{cursor:pointer}
-  tr.audio   td{background:var(--audio)}
-  tr.audio   td:first-child{border-left:3px solid var(--audiobd)}
-  tr.classic td{background:var(--classic)}
-  tr.classic td:first-child{border-left:3px solid var(--classicbd)}
-  tr.ble     td{background:var(--ble);color:var(--blefg)}
-  tr.ble     td:first-child{border-left:3px solid transparent}
+  tr.audio   td{background:var(--audio)}  tr.audio   td:first-child{border-left:3px solid var(--audiobd)}
+  tr.classic td{background:var(--classic)} tr.classic td:first-child{border-left:3px solid var(--classicbd)}
+  tr.ble     td{background:var(--ble);color:var(--blefg)} tr.ble td:first-child{border-left:3px solid var(--blebd)}
   tr.sel td{outline:2px solid var(--accent);outline-offset:-2px}
   .tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line)}
   .muted{color:var(--muted)}
@@ -40,12 +39,21 @@
   .legend{font-size:11px;color:var(--muted);margin-top:10px;display:flex;gap:16px;flex-wrap:wrap}
   .sw{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:middle}
   #status{font-size:13px}
-  .warn{font-size:11px;color:#c9923a;margin-top:12px}
+  .note{font-size:11px;color:var(--warn);margin-top:10px}
+  .svc{margin-top:12px}
+  .svc h3{font-size:12px;color:var(--muted);margin:0 0 4px;font-weight:600}
+  .chr{border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px}
+  .chr.writable{border-left:3px solid var(--warn)}
+  .chr code{font-size:12px}
+  .props span{font-size:10px;padding:1px 6px;border-radius:999px;border:1px solid var(--line);margin-right:4px;color:var(--muted)}
+  .props .w{color:var(--warn);border-color:var(--warn)}
+  .val{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#9ad; word-break:break-all;margin-top:4px}
+  .hidden{display:none}
 </style>
 </head>
 <body>
   <h1>ESP32 Bluetooth-Tester</h1>
-  <div class="sub">Scannen · Verbinden · Piepton — nur für eigene / autorisierte Geräte</div>
+  <div class="sub">Scannen · A2DP-Piepton · BLE-GATT-Explorer — nur für autorisierte Tests / Lab-Geräte</div>
 
   <div class="card">
     <div class="row">
@@ -57,107 +65,186 @@
       <tbody id="devs"><tr><td colspan="4" class="muted">Noch kein Scan.</td></tr></tbody>
     </table>
     <div class="legend">
-      <span><span class="sw" style="background:#1e5f3a;border:1px solid #36c377"></span>Audio – verbindbar/beep-bar</span>
-      <span><span class="sw" style="background:#1d3a5f;border:1px solid #4a9eff"></span>Classic – verbindbar</span>
-      <span><span class="sw" style="background:#23262e"></span>BLE – nur Info</span>
+      <span><span class="sw" style="background:#1e5f3a;border:1px solid #36c377"></span>Audio – A2DP/Piepton</span>
+      <span><span class="sw" style="background:#1d3a5f;border:1px solid #4a9eff"></span>Classic</span>
+      <span><span class="sw" style="background:#23262e;border:1px solid #7a5cff"></span>BLE – GATT-Explorer</span>
     </div>
   </div>
 
   <div class="card">
     <div id="status"><span class="dot" style="background:#6b7280"></span>Status wird geladen …</div>
-    <div class="row" style="margin-top:12px">
-      <button id="connBtn" onclick="doConnect()" disabled>Verbinden</button>
-      <button id="discBtn" onclick="doDisconnect()" disabled>Trennen</button>
+
+    <!-- A2DP-Steuerung (für Classic-/Audio-Geräte) -->
+    <div id="a2dpCtrls" class="hidden">
+      <h2 style="margin-top:12px">A2DP / Piepton</h2>
+      <div class="row">
+        <button id="connBtn" onclick="doConnect()">Verbinden</button>
+        <button id="discBtn" onclick="doDisconnect()">Trennen</button>
+        <span>Ton (1 kHz):</span>
+        <input type="number" id="dur" value="5" min="1" max="60"> <span class="muted">Sek.</span>
+        <button id="beepBtn" class="primary" onclick="doBeep()">Piepton senden</button>
+      </div>
     </div>
-    <div class="row" style="margin-top:12px">
-      <span>Piepton (1&nbsp;kHz):</span>
-      <input type="number" id="dur" value="5" min="1" max="60"> <span class="muted">Sek.</span>
-      <button id="beepBtn" class="primary" onclick="doBeep()" disabled>Piepton senden</button>
+
+    <!-- BLE-GATT-Steuerung -->
+    <div id="gattCtrls" class="hidden">
+      <h2 style="margin-top:12px">BLE-GATT-Explorer</h2>
+      <div class="row">
+        <button id="gattConnBtn" class="primary" onclick="gattConnect()">GATT verbinden</button>
+        <button id="gattDiscBtn" onclick="gattDisconnect()">GATT trennen</button>
+        <span id="gattInfo" class="muted"></span>
+      </div>
     </div>
-    <div class="warn">Hinweis: Der Piepton funktioniert nur bei verbindbaren Audio-Geräten (A2DP-Lautsprecher/-Kopfhörer). BLE-Geräte können keinen Ton empfangen.</div>
+
+    <div id="hint" class="note">Wähle oben ein Gerät: grün/blau = A2DP-Piepton, violett (BLE) = GATT-Explorer.</div>
+  </div>
+
+  <!-- GATT-Ergebnis -->
+  <div id="gattCard" class="card hidden">
+    <h2>Dienste &amp; Charakteristiken</h2>
+    <div class="note">Nur gegen Geräte verwenden, die du selbst kontrollierst / die zum Test freigegeben sind. Werte, die sich <b>ohne Pairing lesen/schreiben</b> lassen, sind der didaktische Befund „ungeschützt".</div>
+    <div id="gattTree"><span class="muted">—</span></div>
   </div>
 
 <script>
-let selected = null;         // {addr, type, connectable}
+let selected = null;
 let devPollTimer = null;
 
-async function post(url){ try{ await fetch(url,{method:'POST'}); }catch(e){} }
+async function post(url){ try{ const r=await fetch(url,{method:'POST'}); return await r.json(); }catch(e){ return null; } }
 async function getJSON(url){ try{ const r=await fetch(url); return await r.json(); }catch(e){ return null; } }
+function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
+/* ---------- Scan / Liste ---------- */
 function doScan(){
   post('/api/scan');
-  document.getElementById('scanInfo').textContent = 'Scan läuft …';
-  let n = 0;
-  clearInterval(devPollTimer);
-  devPollTimer = setInterval(async ()=>{ await loadDevices(); if(++n>12){clearInterval(devPollTimer);} }, 1500);
+  document.getElementById('scanInfo').textContent='Scan läuft …';
+  let n=0; clearInterval(devPollTimer);
+  devPollTimer=setInterval(async()=>{ await loadDevices(); if(++n>12) clearInterval(devPollTimer); },1500);
   loadDevices();
 }
-
-function rowClass(d){
-  if(d.type==='ble') return 'ble';
-  return (d.connectable && d.audio) ? 'audio' : 'classic';
-}
+function rowClass(d){ if(d.type==='ble') return 'ble'; return (d.connectable&&d.audio)?'audio':'classic'; }
 
 async function loadDevices(){
-  const data = await getJSON('/api/devices');
-  if(!data) return;
-  document.getElementById('scanInfo').textContent =
-     data.scanning ? 'Scan läuft …' : (data.devices.length+' Gerät(e) gefunden');
-  const tb = document.getElementById('devs');
+  const data=await getJSON('/api/devices'); if(!data) return;
+  document.getElementById('scanInfo').textContent = data.scanning?'Scan läuft …':(data.devices.length+' Gerät(e)');
+  const tb=document.getElementById('devs');
   if(!data.devices.length){ tb.innerHTML='<tr><td colspan="4" class="muted">Keine Geräte.</td></tr>'; return; }
   tb.innerHTML='';
-  data.devices.sort((a,b)=> (b.connectable-a.connectable) || (b.rssi-a.rssi));
+  data.devices.sort((a,b)=>(b.connectable-a.connectable)||(b.rssi-a.rssi));
   for(const d of data.devices){
     const tr=document.createElement('tr');
-    tr.className='dev '+rowClass(d)+(selected && selected.addr===d.addr?' sel':'');
-    const typ = d.type==='ble' ? 'BLE' : (d.audio?'Classic · Audio':'Classic');
-    tr.innerHTML = `<td>${esc(d.name)}</td><td><code>${d.addr}</code></td>`+
-                   `<td><span class="tag">${typ}</span></td><td>${d.rssi} dBm</td>`;
-    tr.onclick = ()=>{ selected = d; renderSel(); loadStatus(); };
+    tr.className='dev '+rowClass(d)+(selected&&selected.addr===d.addr?' sel':'');
+    const typ=d.type==='ble'?'BLE':(d.audio?'Classic · Audio':'Classic');
+    tr.innerHTML=`<td>${esc(d.name)}</td><td><code>${d.addr}</code></td><td><span class="tag">${typ}</span></td><td>${d.rssi} dBm</td>`;
+    tr.onclick=()=>{ selected=d; renderSel(); loadStatus(); };
     tb.appendChild(tr);
   }
 }
-
-function esc(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
-
 function renderSel(){
-  document.querySelectorAll('tr.dev').forEach(tr=>tr.classList.remove('sel'));
-  if(selected){
-    document.querySelectorAll('tr.dev').forEach(tr=>{
-      if(tr.querySelector('code') && tr.querySelector('code').textContent===selected.addr) tr.classList.add('sel');
-    });
-  }
+  document.querySelectorAll('tr.dev').forEach(tr=>{
+    const c=tr.querySelector('code');
+    tr.classList.toggle('sel', selected&&c&&c.textContent===selected.addr);
+  });
+  const isBle=selected&&selected.type==='ble';
+  const isA2dp=selected&&selected.type==='classic';
+  document.getElementById('a2dpCtrls').classList.toggle('hidden', !isA2dp);
+  document.getElementById('gattCtrls').classList.toggle('hidden', !isBle);
+  document.getElementById('hint').classList.toggle('hidden', !!selected);
 }
 
+/* ---------- A2DP ---------- */
 function doConnect(){ if(selected) post('/api/connect?addr='+selected.addr); }
 function doDisconnect(){ post('/api/disconnect'); }
 function doBeep(){
   if(!selected) return;
-  const dur = Math.max(1, Math.min(60, parseInt(document.getElementById('dur').value)||5));
+  const dur=Math.max(1,Math.min(60,parseInt(document.getElementById('dur').value)||5));
   post('/api/beep?addr='+selected.addr+'&dur='+dur);
 }
 
+/* ---------- Status ---------- */
 async function loadStatus(){
-  const s = await getJSON('/api/status');
-  if(!s) return;
-  const map = {idle:['#6b7280','Bereit'],connecting:['#c9923a','Verbinde …'],
-               connected:['#36c377','Verbunden'+(s.peer?' mit '+s.peer:'')],
-               disconnecting:['#c9923a','Trenne …']};
-  const [col,txt] = map[s.state]||['#6b7280','–'];
-  const extra = s.streaming ? '  ·  🔊 Ton läuft' : '';
-  document.getElementById('status').innerHTML =
-     `<span class="dot" style="background:${col}"></span>${txt}${extra}`;
+  const s=await getJSON('/api/status'); if(!s) return;
+  const map={idle:['#6b7280','Bereit'],connecting:['#c9923a','Verbinde …'],
+             connected:['#36c377','A2DP verbunden'+(s.peer?' · '+s.peer:'')],disconnecting:['#c9923a','Trenne …']};
+  const [col,txt]=map[s.state]||['#6b7280','–'];
+  let extra=s.streaming?'  ·  🔊 Ton':''; if(s.gatt_connected) extra+='  ·  GATT verbunden';
+  document.getElementById('status').innerHTML=`<span class="dot" style="background:${col}"></span>${txt}${extra}`;
 
-  const canUse = selected && selected.connectable;
-  const connected = s.state==='connected';
-  document.getElementById('connBtn').disabled = !canUse;
-  document.getElementById('beepBtn').disabled = !canUse;
-  document.getElementById('discBtn').disabled = !connected;
-  document.getElementById('scanBtn').disabled = s.scanning || connected || s.state==='connecting';
+  const a2dp=selected&&selected.type==='classic';
+  document.getElementById('connBtn').disabled=!a2dp;
+  document.getElementById('beepBtn').disabled=!a2dp;
+  document.getElementById('discBtn').disabled=(s.state!=='connected');
+  document.getElementById('scanBtn').disabled=s.scanning;
+  document.getElementById('gattDiscBtn').disabled=!s.gatt_connected;
 }
 
-setInterval(loadStatus, 2000);
-setInterval(()=>{ if(!document.hidden) loadDevices(); }, 4000);
+/* ---------- BLE-GATT ---------- */
+async function gattConnect(){
+  if(!selected) return;
+  const info=document.getElementById('gattInfo');
+  info.textContent='verbinde & entdecke …';
+  document.getElementById('gattConnBtn').disabled=true;
+  const r=await post('/api/gatt/connect?addr='+selected.addr);
+  document.getElementById('gattConnBtn').disabled=false;
+  if(r&&r.ok){ info.textContent='verbunden'; loadGattDb(); }
+  else{ info.textContent='fehlgeschlagen (rc='+(r?r.rc:'?')+') — Gerät erreichbar/verbindbar?'; }
+}
+async function gattDisconnect(){ await post('/api/gatt/disconnect'); document.getElementById('gattCard').classList.add('hidden'); document.getElementById('gattInfo').textContent='getrennt'; }
+
+async function loadGattDb(){
+  const db=await getJSON('/api/gatt/db'); if(!db) return;
+  const card=document.getElementById('gattCard'); const tree=document.getElementById('gattTree');
+  if(!db.connected||!db.chars.length){ card.classList.remove('hidden'); tree.innerHTML='<span class="muted">Keine Charakteristiken gefunden.</span>'; return; }
+  card.classList.remove('hidden');
+  const svcs={};
+  for(const c of db.chars){ (svcs[c.svc]=svcs[c.svc]||[]).push(c); }
+  let html='';
+  for(const svc in svcs){
+    html+=`<div class="svc"><h3>Dienst ${esc(svc)}</h3>`;
+    for(const c of svcs[svc]){
+      const writable=c.write||c.write_nr;
+      let badges='';
+      if(c.read) badges+='<span>R</span>';
+      if(c.write) badges+='<span class="w">W</span>';
+      if(c.write_nr) badges+='<span class="w">W-nr</span>';
+      if(c.notify) badges+='<span>Notify</span>';
+      if(c.indicate) badges+='<span>Indicate</span>';
+      html+=`<div class="chr${writable?' writable':''}">`;
+      html+=`<div><code>${esc(c.uuid)}</code> <span class="muted">h=${c.handle}</span></div>`;
+      html+=`<div class="props" style="margin-top:4px">${badges||'<span>—</span>'}</div>`;
+      html+=`<div class="row" style="margin-top:6px">`;
+      if(c.read) html+=`<button class="sm" onclick="gattRead(${c.handle})">Lesen</button>`;
+      if(writable){
+        const resp=c.write?1:0;
+        html+=`<input type="text" id="w${c.handle}" placeholder="Wert" style="flex:1;min-width:120px">`;
+        html+=`<label class="muted" style="font-size:11px"><input type="checkbox" id="h${c.handle}"> hex</label>`;
+        html+=`<button class="sm" onclick="gattWrite(${c.handle},${resp})">Schreiben</button>`;
+      }
+      html+=`</div><div class="val" id="v${c.handle}"></div></div>`;
+    }
+    html+='</div>';
+  }
+  tree.innerHTML=html;
+}
+
+async function gattRead(h){
+  const v=document.getElementById('v'+h); v.textContent='liest …';
+  const r=await post('/api/gatt/read?handle='+h);
+  if(r&&r.ok){ v.innerHTML='✅ ungeschützt lesbar — hex: <b>'+esc(r.hex||'')+'</b>'+(r.ascii?'  ascii: "'+esc(r.ascii)+'"':''); }
+  else{ v.textContent='⛔ Lesen abgelehnt (status '+(r?r.status:'?')+') — vermutlich Auth/Encryption nötig'; }
+}
+async function gattWrite(h,resp){
+  const val=document.getElementById('w'+h).value||'';
+  const hex=document.getElementById('h'+h).checked;
+  const v=document.getElementById('v'+h); v.textContent='schreibt …';
+  const q=hex?('hex='+encodeURIComponent(val)):('text='+encodeURIComponent(val));
+  const r=await post('/api/gatt/write?handle='+h+'&resp='+resp+'&'+q);
+  if(r&&r.ok){ v.innerHTML='✅ geschrieben (ungeschützt beschreibbar)'; }
+  else{ v.textContent='⛔ Schreiben abgelehnt (status '+(r?r.status:'?')+')'; }
+}
+
+setInterval(loadStatus,2000);
+setInterval(()=>{ if(!document.hidden) loadDevices(); },4000);
 loadStatus();
 </script>
 </body>

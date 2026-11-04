@@ -97,6 +97,7 @@ void app_main(void)
 
     bt_scan_init();
     a2dp_init();
+    ble_gattc_init();
     web_start();
 
     ESP_LOGI(TAG, "Bereit. WLAN '%s' verbinden, dann http://192.168.4.1/ öffnen.", AP_SSID);

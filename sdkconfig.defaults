@@ -19,12 +19,16 @@ CONFIG_BT_SSP_ENABLED=y
 
 # BLE (für Scan/Observer)
 CONFIG_BT_BLE_ENABLED=y
-# GATT client/server werden nicht gebraucht (nur Scannen)
+# GATT-Client fuer den BLE-Explorer aktiv; GATT-Server nicht gebraucht
 CONFIG_BT_GATTS_ENABLE=n
-CONFIG_BT_GATTC_ENABLE=n
+CONFIG_BT_GATTC_ENABLE=y
 
 # ---- WiFi + Bluetooth Koexistenz (ein Funk-Core) ----
 CONFIG_ESP_COEX_SW_COEXIST_ENABLE=y
+
+# ---- WiFi-Puffer etwas reduzieren (RAM-Headroom ohne PSRAM) ----
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=16
+CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=16
 
 # ---- HTTP Server ----
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024

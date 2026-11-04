@@ -1,15 +1,13 @@
 /*
  * bt_scan.c — Dual-Mode-Scan.
  *   - Classic-Inquiry (esp_bt_gap_start_discovery)  -> Lautsprecher/Kopfhörer
- *   - BLE-Scan        (esp_ble_gap_start_scanning)   -> nur zur Info gelistet
+ *   - BLE-Scan        (esp_ble_gap_start_scanning)   -> BLE-Geräte (inkl. GATT-Ziele)
  * Ergebnisse werden in einer gemeinsamen, per Mutex geschützten Tabelle
  * zusammengeführt. Dieser Classic-GAP-Callback akzeptiert außerdem die
- * SSP-Bestätigung automatisch (Just Works), damit der Verbindungsaufbau der
- * A2DP-Source ohne Nutzerinteraktion klappt.
+ * SSP-Bestätigung automatisch (Just Works).
  *
- * Hinweis: Die öffentlichen Funktionen heißen bewusst bt_scan_* — ein
- * schlichtes scan_start() würde mit einem Symbol der WLAN-Bibliothek
- * (libnet80211) kollidieren.
+ * Für BLE-Geräte wird der Adresstyp (public/random) mitgespeichert, weil der
+ * GATT-Client ihn für esp_ble_gattc_open() braucht.
  */
 #include "bt_tester.h"
 #include <string.h>
@@ -65,6 +63,20 @@ int bt_scan_get_devices(bt_device_t *out, int max)
     memcpy(out, s_dev, n * sizeof(bt_device_t));
     xSemaphoreGive(s_lock);
     return n;
+}
+
+uint8_t bt_scan_ble_addr_type(const esp_bd_addr_t bda)
+{
+    uint8_t at = 0;  /* BLE_ADDR_TYPE_PUBLIC */
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    for (int i = 0; i < s_dev_n; i++) {
+        if (s_dev[i].type == DEV_TYPE_BLE && memcmp(s_dev[i].bda, bda, 6) == 0) {
+            at = s_dev[i].ble_addr_type;
+            break;
+        }
+    }
+    xSemaphoreGive(s_lock);
+    return at;
 }
 
 bool bt_scan_is_running(void)
@@ -171,10 +183,11 @@ static void ble_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
             xSemaphoreTake(s_lock, portMAX_DELAY);
             bt_device_t *d = find_or_add(param->scan_rst.bda, DEV_TYPE_BLE);
             if (d) {
-                d->connectable  = false;    /* BLE: nur zur Info */
-                d->is_audio     = false;
-                d->rssi         = param->scan_rst.rssi;
-                d->last_seen_us = esp_timer_get_time();
+                d->connectable   = false;    /* kein Classic/A2DP; GATT separat */
+                d->is_audio      = false;
+                d->rssi          = param->scan_rst.rssi;
+                d->ble_addr_type = param->scan_rst.ble_addr_type;
+                d->last_seen_us  = esp_timer_get_time();
                 uint8_t  nlen = 0;
                 uint8_t *name = esp_ble_resolve_adv_data(
                     param->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &nlen);
